@@ -1,0 +1,3 @@
+break /home/hsq/ELF/inject_code/inject_code.c:193
+break pid_write
+
