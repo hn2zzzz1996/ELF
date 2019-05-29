@@ -5,11 +5,12 @@
 #include <signal.h>
 #include <unistd.h>
 #include <elf.h>
-#include <sys/type.h>
+#include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 
 #define CALLSTACK_DEPTH 1000000
+#define MAX_SHDRS 256
 
 struct {
 	int arch;
@@ -70,7 +71,14 @@ typedef struct callstack{
 	unsigned int depth;
 } callstack_t;
 
+struct handle{
+	char *path;
+
+};
+
 int global_pid;
+
+void * HeapAlloc(unsigned int size);
 
 void set_breakpoint(callstack_t *callstack){
 	long orig = ptrace(PTRACE_PEEKTEXT, global_pid, callstack->calldata[callstack->depth].retaddr);
@@ -90,7 +98,7 @@ void remove_breakpoint(callstack_t *callstack){
 		printf("[+] Removing breakpoint on 0x%lx\n", callstack->calldata[callstack->depth].retaddr);
 
 	ptrace(PTRACE_POKETEXT, global_pid, callstack->calldata[callstack->depth].retaddr,
-		callstack->calldata[callstack->depth].orig_code);
+		callstack->calldata[callstack->depth].breakpoint.orig_code);
 }
 
 /*
@@ -122,7 +130,55 @@ calldata_t * callstack_peen(callstack_t *callstack){
 	return (&callstack->calldata[callstack->depth]);
 }
 
+void * HeapAlloc(unsigned int size){
+	void *mem = malloc(size);
+	if(!mem){
+		perror("malloc");
+		exit(-1);
+	}
+	return mem;
+}
 
+char *xstrdup(const char *s){
+	char *p = strdup(s);
+	if(p == NULL){
+		perror("strdup");
+		exit(-1);
+	}
+	return p;
+}
+
+/*
+ * ptrace function
+ */
+
+int pid_read(int pid, void *dst, void *src, size_t len){
+	int sz = len / sizeof(void *);
+	char *s = (char *)src;
+	char *d = (char *)dst;
+	
+	long word;
+	while(sz-- > 0){
+		word = ptrace(PTRACE_PEEKTEXT, pid, src, NULL);
+		if(word == -1 && errno){
+			perror("ptrace in pid_read");
+			return -1;
+		}
+
+		*(long *)d = word;
+		s += sizeof(void *);
+		d += sizeof(void *);
+	}
+	return 0;
+}
+
+/*
+ * Get global/local and dynamic
+ * symbol/function information.
+ */
+int BuildSyms(struct handle *h){
+	
+}
 
 void sighandler(int sig){
 	fprintf(stdout, "Caught signal ctrl-C, detaching...\n");
@@ -142,6 +198,6 @@ int main(int argc, char *argv[]){
 
 	if(argc < 2){
 	usage:
-		
+		printf("Usage: \n");
 	}
 }
