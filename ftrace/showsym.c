@@ -9,6 +9,8 @@
 #include <sys/types.h>
 #include <elf.h>
 
+#define RED "\x1B[31m"
+
 struct handle{
 	char *mem;
 	Elf64_Ehdr *ehdr;
@@ -65,12 +67,12 @@ void showSym(){
 
 				switch(shdr[i].sh_type){
 					case SHT_SYMTAB:
-						printf("SYMTAB: Symname: %s, Symvalue: 0x%x\n", 
-								&SymStrTable[symtab->st_name], symtab->st_value);
+						printf("%sSYMTAB: Symname: %s, Symvalue: 0x%lx\n", 
+							RED,&SymStrTable[symtab->st_name], symtab->st_value);
 						break;
 					/* Initial value should point to the .plt */
 					case SHT_DYNSYM:
-						printf("DYNSYM: Symname: %s, Symvalue: 0x%x\n", 
+						printf("DYNSYM: Symname: %s, Symvalue: 0x%lx\n", 
 								&SymStrTable[symtab->st_name], symtab->st_value);
 						break;
 				}
