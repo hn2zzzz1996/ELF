@@ -1,3 +1,4 @@
+/* Incomplete, just reference */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <sys/stat.h>
+#include <sys/reg.h>
 
 /*
  * For color coding output
@@ -203,7 +205,9 @@ int pid_read(int pid, void *dst, void *src, size_t len){
  * Main handler
  */
 void examine_process(struct handle *h){
-	
+	int i, status, eip;
+	struct user_regs_struct regs;
+
 	callstack_t callstack;
 	calldata_t calldata;
 	calldata_t *calldp;
@@ -221,6 +225,8 @@ void examine_process(struct handle *h){
 
 		ptrace(PTRACE_GETREGS, h->pid, NULL, &regs);
 
+		eip = regs.eip;
+
 		if(pid_read(h->pid, buf, eip, 8) < 0){
 			perror("pid_read");
 			exit(-1);
@@ -232,8 +238,6 @@ void examine_process(struct handle *h){
 				if(calldp->retaddr == eip){
 					
 					calldp = callstack_pop(&callstack);
-					free(calldp->string);
-					free(calldp->symname);
 				}
 			}
 		}
@@ -243,7 +247,16 @@ void examine_process(struct handle *h){
 			vaddr = eip + offset + 5;
 			vaddr &= 0xffffffff;
 
+			for(i = 0; i < h->lsc; i++){
+				if(vaddr == h->lsyms[i].value){
+					printf("%sLOCAL_call@0x%lx:%s%s()\n", GREEN, h->lsyms[i].name, 
+						WHITE, h->lsyms[i].name ? h->lsyms[i].name : "<unknown>");
 
+					calldata.vaddr = h->lsyms[i].value;
+					calldata.retaddr = eip + 5;
+					callstack_push(&callstack, &calldata);
+				}
+			}
 		}
 	}
 }
